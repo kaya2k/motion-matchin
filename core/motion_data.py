@@ -20,7 +20,8 @@ class MotionData:
         bvh = BVH(bvh_filename)
         self.n_frames = bvh.n_frames
         self.frame_time = bvh.frame_time
-        n_joints, edge_list, positions, rotations = bvh.get_motion_data()
+        n_joints, joints, edge_list, positions, rotations = bvh.get_motion_data()
+        self.joints = joints
         self.n_joints = n_joints
         self.edge_list = edge_list
         self.positions = positions
