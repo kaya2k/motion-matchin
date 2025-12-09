@@ -12,7 +12,7 @@ def main():
     for frame in range(motiondata.n_frames):
         start_time = time.perf_counter()
         visualizer.update(
-            motiondata.n_joints,
+            motiondata.joints,
             motiondata.edge_list,
             motiondata.positions[frame],
             motiondata.rotations[frame],
