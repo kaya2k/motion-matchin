@@ -2,17 +2,14 @@ import rerun as rr
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-XYZ_TO_ZXY = [
-    [0, 0, 1],
-    [1, 0, 0],
-    [0, 1, 0],
-]
-
 
 class MotionVisualizer:
     """Class to visualize motion using Rerun."""
 
     def __init__(self):
+        self.input_direction = np.array([0.0, 0.0, 0.0])
+
+        XYZ_TO_ZXY = [0, 0, 1, 1, 0, 0, 0, 1, 0]
         rr.init("MotionVisualizer", spawn=True)
         rr.log("world", rr.Transform3D(mat3x3=XYZ_TO_ZXY))
         rr.log(
@@ -22,10 +19,13 @@ class MotionVisualizer:
                 colors=[[255, 0, 0], [255, 0, 0], [255, 0, 0]],
             ),
         )
-        self.input_direction = np.array([0.0, 0.0, 0.0])
 
-    def update(self, joints, edge_list, positions, rotations):
-        # Log root position
+    def update(self, joints, edges, positions, rotations):
+        self.log_root(positions)
+        self.log_bones(joints, edges, positions, rotations)
+        self.log_input_direction(positions)
+
+    def log_root(self, positions):
         root_position = positions[0].copy()
         root_position[1] = 0
         rr.log(
@@ -33,8 +33,8 @@ class MotionVisualizer:
             rr.Points3D(positions=[root_position], radii=4.0, colors=[[255, 0, 0]]),
         )
 
-        # Log bones
-        for i, j in edge_list:
+    def log_bones(self, joints, edges, positions, rotations):
+        for i, j in edges:
             center = (positions[i] + positions[j]) / 2.0
             length = np.linalg.norm(positions[i] - positions[j])
             size = 8.0
@@ -51,7 +51,9 @@ class MotionVisualizer:
                 ),
             )
 
-        # Log input direction
+    def log_input_direction(self, positions):
+        root_position = positions[0].copy()
+        root_position[1] = 0
         rr.log(
             "world/input_direction",
             rr.Arrows3D(
