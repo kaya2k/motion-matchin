@@ -37,7 +37,8 @@ class BVH:
                     self.root.add_channel_values(channel_values)
 
     def get_motion_data(self):
-        n_joints = self.root.count_nodes()
+        joints = []
+        n_joints = self.root.count_nodes(joints)
         edge_list = []
         self.root.find_edges(edge_list)
 
@@ -46,7 +47,7 @@ class BVH:
         for frame in range(self.n_frames):
             self.root.calculate(frame, positions, rotations)
 
-        return n_joints, edge_list, positions, rotations
+        return n_joints, joints, edge_list, positions, rotations
 
     def print(self):
         self.root.print()
