@@ -40,9 +40,9 @@ class BVH:
         n_joints = self.root.count_nodes()
         edge_list = []
         self.root.find_edges(edge_list)
+
         positions = np.zeros((self.n_frames, n_joints, 3))
         rotations = np.zeros((self.n_frames, n_joints, 3))
-
         for frame in range(self.n_frames):
             self.root.calculate(frame, positions, rotations)
 

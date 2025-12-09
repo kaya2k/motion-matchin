@@ -41,10 +41,16 @@ class BVHNode:
 
         raise ValueError("Malformed BVH file: missing closing '}'")
 
-    def add_channel_values(self, values):
-        self.channel_values.append(values[: self.n_channels])
+    def add_channel_values(self, values, index=0):
+        self.channel_values.append(values[index : index + self.n_channels])
+        # Reverse the order of rotation channels and convert to radians
+        self.channel_values[-1][-3:] = [
+            np.deg2rad(angle) for angle in self.channel_values[-1][-1:-4:-1]
+        ]
+        index += self.n_channels
         for child in self.children:
-            child.add_channel_values(values[self.n_channels :])
+            index = child.add_channel_values(values, index)
+        return index
 
     def count_nodes(self):
         count = 1
@@ -60,36 +66,28 @@ class BVHNode:
         return child_index
 
     def calculate(self, frame, positions, rotations, node_index=0, parent_index=-1):
-        if node_index == 0:  # ROOT node
-            position = np.array(self.channel_values[frame][:3])
-            rotation = np.array(self.channel_values[frame][3:6])
-            # Convert rotation from degrees to radians
-            rotation = R.from_euler("zyx", rotation, degrees=True).as_euler("xyz")
+        if node_index == 0:
+            position = self.channel_values[frame][:3]
+            rotation = self.channel_values[frame][-3:]
             positions[frame, node_index] = position
             rotations[frame, node_index] = rotation
         else:
             parent_position = positions[frame, parent_index]
             parent_rotation = rotations[frame, parent_index]
-            local_rotation = np.array(self.channel_values[frame][:])
-            local_R = R.from_euler("zyx", local_rotation, degrees=True)
-            # Parent rotation is saved in radians
-            parent_R = R.from_euler("xyz", parent_rotation, degrees=False)
-            posision_to_parent = local_R.as_matrix() @ self.offset
-            # Calculate global position
-            position = parent_R.as_matrix() @ (parent_position + posision_to_parent)
-            # Calculate global rotation in radians
+            rotation = self.channel_values[frame][-3:]
+            local_R = R.from_euler("xyz", rotation)
+            parent_R = R.from_euler("xyz", parent_rotation)
+            position = parent_R.apply(self.offset) + parent_position
             rotation = (parent_R * local_R).as_euler("xyz")
             positions[frame, node_index] = position
             rotations[frame, node_index] = rotation
 
-        parent_index = node_index
+        child_index = node_index + 1
         for child in self.children:
-            node_index += 1
-            node_index = child.calculate(
-                frame, positions, rotations, node_index, parent_index
+            child_index = child.calculate(
+                frame, positions, rotations, child_index, node_index
             )
-
-        return node_index
+        return child_index
 
     def print(self, indent=0):
         print(" " * indent + self.name)
