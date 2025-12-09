@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.py[oc]
 build/
@@ -5,4 +6,11 @@ dist/
 wheels/
 *.egg-info
 .venv
+
+# Data
+data/features/
+data/positions/
+data/rotations/
+
+# Others
 .DS_Store
