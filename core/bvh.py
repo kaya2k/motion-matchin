@@ -8,9 +8,15 @@ class BVH:
     root: BVHNode
     n_frames: int
     frame_time: float
+    joints: list[str]
+    edges: list[tuple[int, int]]
 
     def __init__(self, filename):
         self.parse(filename)
+        self.joints = self.root.collect()
+        edges = []
+        self.root.find_edges(edges)
+        self.edges = edges
 
     def parse(self, filename):
         with open(filename, "r") as f:
@@ -36,18 +42,13 @@ class BVH:
                     channel_values = list(map(float, line.split()))
                     self.root.add_channel_values(channel_values)
 
-    def get_motion_data(self):
-        joints = []
-        n_joints = self.root.count_nodes(joints)
-        edge_list = []
-        self.root.find_edges(edge_list)
-
+    def calculate_positions_rotations(self):
+        n_joints = len(self.joints)
         positions = np.zeros((self.n_frames, n_joints, 3))
         rotations = np.zeros((self.n_frames, n_joints, 3))
         for frame in range(self.n_frames):
             self.root.calculate(frame, positions, rotations)
-
-        return n_joints, joints, edge_list, positions, rotations
+        return positions, rotations
 
     def print(self):
         self.root.print()

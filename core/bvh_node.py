@@ -52,12 +52,11 @@ class BVHNode:
             index = child.add_channel_values(values, index)
         return index
 
-    def count_nodes(self, names):
-        count = 1
-        names.append(self.name)
+    def collect(self):
+        names = [self.name]
         for child in self.children:
-            count += child.count_nodes(names)
-        return count
+            names.extend(child.collect())
+        return names
 
     def find_edges(self, edges, node_index=0):
         child_index = node_index + 1
