@@ -22,6 +22,7 @@ class MotionVisualizer:
                 colors=[[255, 0, 0], [255, 0, 0], [255, 0, 0]],
             ),
         )
+        self.input_direction = np.array([0.0, 0.0, 0.0])
 
     def update(self, joints, edge_list, positions, rotations):
         # Log root position
@@ -49,3 +50,14 @@ class MotionVisualizer:
                     fill_mode="solid",
                 ),
             )
+
+        # Log input direction
+        rr.log(
+            "world/input_direction",
+            rr.Arrows3D(
+                origins=[root_position],
+                vectors=[self.input_direction * 100.0],
+                colors=[[255, 0, 0]],
+                radii=4.0,
+            ),
+        )
