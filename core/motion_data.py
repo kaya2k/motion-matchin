@@ -1,7 +1,9 @@
 import os
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 from .bvh import BVH
 from .feature import extract_features
+from .utils import extract_y_rotation
 
 
 class MotionData:
@@ -14,14 +16,18 @@ class MotionData:
     positions: np.ndarray
     rotations: np.ndarray
     features: np.ndarray
+    translations: np.ndarray
+    dy_rotations: np.ndarray
 
     def __init__(self, bvh_filename):
-        name = os.path.basename(bvh_filename).replace(".bvh", "")
-        print(f"Loading MotionData from {name}")
+        self.load_data(bvh_filename)
+        self.calculate_delta()
 
+    def load_data(self, bvh_filename):
         POSITIONS_DIR = "./data/positions"
         ROTATIONS_DIR = "./data/rotations"
         FEATURES_DIR = "./data/features"
+        name = os.path.basename(bvh_filename).replace(".bvh", "")
         positions_filename = os.path.join(POSITIONS_DIR, f"{name}_positions.npy")
         rotations_filename = os.path.join(ROTATIONS_DIR, f"{name}_rotations.npy")
         features_filename = os.path.join(FEATURES_DIR, f"{name}_features.npy")
@@ -53,3 +59,12 @@ class MotionData:
                 self.joints, self.positions, self.rotations
             )
             np.save(features_filename, self.features)
+
+    def calculate_delta(self):
+        y_rotations = extract_y_rotation(self.rotations[:, 0])
+        root_R = R.from_euler("y", y_rotations)
+        self.translations = np.zeros((self.n_frames, 3), dtype=np.float32)
+        self.translations[1:] = self.positions[1:, 0] - self.positions[:-1, 0]
+        self.translations[1:] = root_R[:-1].inv().apply(self.translations[1:])
+        self.dy_rotations = np.zeros(self.n_frames, dtype=np.float32)
+        self.dy_rotations[1:] = y_rotations[1:] - y_rotations[:-1]

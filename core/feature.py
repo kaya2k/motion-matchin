@@ -1,5 +1,10 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from .utils import extract_y_rotation
+
+
+FEATURE_DIM = 24
+OFFSETS = [10, 20, 30]
 
 
 def extract_features(joints, positions, rotations):
@@ -7,51 +12,44 @@ def extract_features(joints, positions, rotations):
     Extract feature matrix from positions and rotations for motion matching.
 
     Feature vector:
-        Root future positions (x, z) at 10, 20, 30 frames ahead
-        Root forward directions (x, z) at 10, 20, 30 frames ahead
+        Root future positions (x, z) and directions (x, z) at 10, 20, 30 frames ahead
         Left foot position (x, y, z), velocity (x, y, z)
         Right foot position (x, y, z), velocity (x, y, z)
-
-    Feature matrix: (n_frames, 24)
     """
 
     ROOTIDX = 0
     n_frames = positions.shape[0]
-    n_features = 24
-    frames = np.arange(n_frames)
-    features = np.zeros((n_frames, n_features), dtype=np.float32)
+    features = np.zeros((n_frames, FEATURE_DIM), dtype=np.float32)
+    velocities = np.gradient(positions, axis=0)
 
-    # Global to local translation and y-rotation
-    local_T = positions[:, ROOTIDX]
-    local_R = R.from_euler("xyz", rotations[:, ROOTIDX])
-    local_R = R.from_euler("y", local_R.as_euler("yxz")[:, 0])
+    for frame in range(n_frames):
+        root_T = positions[frame, ROOTIDX]
+        root_y_rotation = extract_y_rotation(rotations[frame, ROOTIDX])
+        root_R_inv = R.from_euler("y", root_y_rotation).inv()
 
-    # Root trajectories and forward directions
-    for i, offset in enumerate([10, 20, 30]):
-        next_frames = frames + offset
-        next_frames = np.clip(next_frames, 0, n_frames - 1)
+        # Root trajectories and forward directions
+        for i, offset in enumerate(OFFSETS):
+            next_frame = min(frame + offset, n_frames - 1)
 
-        next_positions = positions[next_frames, ROOTIDX]
-        next_positions -= local_T
-        next_positions = local_R.inv().apply(next_positions)
-        features[:, i * 2 : i * 2 + 2] = next_positions[:, [0, 2]]
+            position = positions[next_frame, ROOTIDX]
+            position = root_R_inv.apply(position - root_T)
+            features[frame, i * 4 : i * 4 + 2] = position[[0, 2]]
 
-        next_rotations = R.from_euler("xyz", rotations[next_frames, ROOTIDX])
-        next_rotations = local_R.inv() * next_rotations
-        # CHECKME: Is this correct?
-        forward_directions = next_rotations.apply(np.array([0.0, 0.0, 1.0]))
-        features[:, i * 2 + 6 : i * 2 + 8] = forward_directions[:, [0, 2]]
+            y_rotation = extract_y_rotation(rotations[next_frame, ROOTIDX])
+            y_rotation = root_R_inv * R.from_euler("y", y_rotation)
+            forward = y_rotation.apply(np.array([-1.0, 0.0, 0.0]))
+            features[frame, i * 4 + 2 : i * 4 + 4] = forward[[0, 2]]
 
-    # Foot positions and velocities
-    for joint_name in ["LeftFoot", "RightFoot"]:
-        joint_idx = joints.index(joint_name)
-        position = positions[:, joint_idx]
-        local_position = local_R.inv().apply(position - local_T)
-        velocity = np.gradient(positions[:, joint_idx], axis=0)
-        local_velocity = local_R.inv().apply(velocity)
-        if joint_name == "LeftFoot":
-            features[:, 12:18] = np.hstack((local_position, local_velocity))
-        else:  # RIGHTFOOT
-            features[:, 18:24] = np.hstack((local_position, local_velocity))
+        # Foot positions and velocities
+        for joint_name in ["LeftFoot", "RightFoot"]:
+            joint_idx = joints.index(joint_name)
+            position = positions[frame, joint_idx]
+            position = root_R_inv.apply(position - root_T)
+            velocity = velocities[frame, joint_idx]
+            velocity = root_R_inv.apply(velocity)
+            if joint_name == "LeftFoot":
+                features[frame, 12:18] = np.hstack((position, velocity))
+            else:  # RIGHTFOOT
+                features[frame, 18:24] = np.hstack((position, velocity))
 
     return features

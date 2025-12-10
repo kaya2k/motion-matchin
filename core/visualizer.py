@@ -1,6 +1,7 @@
 import rerun as rr
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from .utils import extract_y_rotation
 
 
 class MotionVisualizer:
@@ -16,21 +17,34 @@ class MotionVisualizer:
             "world/xyz",
             rr.Arrows3D(
                 vectors=[[100, 0, 0], [0, 100, 0], [0, 0, 100]],
-                colors=[[255, 0, 0], [255, 0, 0], [255, 0, 0]],
+                colors=[[255, 255, 255]],
             ),
         )
 
-    def update(self, joints, edges, positions, rotations):
-        self.log_root(positions)
+    def update(
+        self,
+        joints,
+        edges,
+        positions,
+        rotations,
+        future_positions,
+        future_directions,
+    ):
+        self.log_root(positions, rotations)
         self.log_bones(joints, edges, positions, rotations)
         self.log_input_direction(positions)
+        self.log_future(future_positions, future_directions)
 
-    def log_root(self, positions):
+    def log_root(self, positions, rotations):
         root_position = positions[0].copy()
         root_position[1] = 0
+        root_y_rotation = extract_y_rotation(rotations[0])
         rr.log(
             "world/root",
-            rr.Points3D(positions=[root_position], radii=4.0, colors=[[255, 0, 0]]),
+            rr.Transform3D(
+                translation=root_position,
+                quaternion=R.from_euler("y", root_y_rotation).as_quat(),
+            ),
         )
 
     def log_bones(self, joints, edges, positions, rotations):
@@ -60,6 +74,17 @@ class MotionVisualizer:
                 origins=[root_position],
                 vectors=[self.input_direction * 100.0],
                 colors=[[255, 0, 0]],
-                radii=4.0,
             ),
+        )
+
+    def log_future(self, future_positions, future_directions):
+        origins = future_positions.copy()
+        vectors = future_directions * 20.0
+        rr.log(
+            "world/root/future_positions",
+            rr.Points3D(positions=origins, radii=4.0, colors=[[255, 255, 255]]),
+        )
+        rr.log(
+            "world/root/future_directions",
+            rr.Arrows3D(origins=origins, vectors=vectors, colors=[[255, 255, 255]]),
         )
