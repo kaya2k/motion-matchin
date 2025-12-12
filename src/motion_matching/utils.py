@@ -29,6 +29,13 @@ def wrap_angle(angle):
     return (angle + np.pi) % (2 * np.pi) - np.pi
 
 
+def interpolate_angle(angle1, angle2, t):
+    """Interpolate between two angles."""
+
+    delta = wrap_angle(angle2 - angle1)
+    return wrap_angle(angle1 + delta * t)
+
+
 def normalize(value, mean, std):
     """Normalize value with mean and std."""
 
@@ -38,7 +45,7 @@ def normalize(value, mean, std):
 def spring_model(velocity, target, dt):
     """Spring model to smoothly interpolate position."""
 
-    SMOOTHNESS = 90
+    SMOOTHNESS = 60
 
     # <Game Programming Gems 4> Chapter 1.10
     omega = 2.0 / SMOOTHNESS

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-from .utils import extract_y_rotation
+from motion_matching.utils import extract_y_rotation
 
 
 FEATURE_DIM = 24

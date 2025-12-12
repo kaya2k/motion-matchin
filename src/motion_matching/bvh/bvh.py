@@ -1,5 +1,5 @@
 import numpy as np
-from .bvh_node import BVHNode
+from motion_matching.bvh.bvh_node import BVHNode
 
 
 class BVH:

@@ -1,7 +1,7 @@
 import rerun as rr
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-from .utils import extract_y_rotation
+from motion_matching.utils import extract_y_rotation
 
 
 class MotionVisualizer:
@@ -10,7 +10,7 @@ class MotionVisualizer:
     def __init__(self):
         self.input_direction = np.array([0.0, 0.0, 0.0])
 
-        XYZ_TO_ZXY = [0, 0, 1, 1, 0, 0, 0, 1, 0]
+        XYZ_TO_ZXY = [0, 0, 0.01, 0.01, 0, 0, 0, 0.01, 0]
         rr.init("MotionVisualizer", spawn=True)
         rr.log("world", rr.Transform3D(mat3x3=XYZ_TO_ZXY))
         rr.log(

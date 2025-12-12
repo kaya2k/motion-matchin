@@ -1,9 +1,9 @@
 import os
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-from .bvh import BVH
-from .feature import extract_features
-from .utils import extract_y_rotation
+from motion_matching.bvh import BVH
+from motion_matching.core.feature import extract_features
+from motion_matching.utils import extract_y_rotation
 
 
 class MotionData:

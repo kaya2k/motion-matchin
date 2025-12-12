@@ -46,9 +46,11 @@ class UserInput:
         if self.joystick:
             SCALE = 128
             joystick_input = self.joystick.read(max_length=64)
-            dx = (joystick_input[1] - SCALE) / SCALE
-            dy = (joystick_input[2] - SCALE) / SCALE
-            return np.array([dx, 0.0, dy])
+            dx = joystick_input[1] - SCALE
+            dy = joystick_input[2] - SCALE
+            dx = dx if abs(dx) > 10 else 0
+            dy = dy if abs(dy) > 10 else 0
+            return np.array([dx / SCALE, 0.0, dy / SCALE])
         else:
             dx = 0.0
             dy = 0.0

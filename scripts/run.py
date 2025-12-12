@@ -1,7 +1,7 @@
 import time
-from core.visualizer import MotionVisualizer
-from core.controller import MotionMatchingController
-from core.user_input import UserInput
+from motion_matching.interface.graphic import MotionVisualizer
+from motion_matching.interface.user_input import UserInput
+from motion_matching.core.controller import MotionMatchingController
 
 
 def main():

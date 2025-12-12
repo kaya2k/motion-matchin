@@ -3,9 +3,9 @@ import time
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from sklearn.neighbors import NearestNeighbors
-from .motion_data import MotionData
-from .feature import FEATURE_DIM, OFFSETS
-from .utils import (
+from motion_matching.core.motion_data import MotionData
+from motion_matching.core.feature import FEATURE_DIM, OFFSETS
+from motion_matching.utils import (
     project_to_xz,
     extract_y_rotation,
     wrap_angle,
@@ -17,14 +17,14 @@ class MotionMatchingController:
     """Class to control motion matching."""
 
     def __init__(self):
+        self.SEARCH_INTERVAL = 3
+        self.LOCK_FOOT = False
+
         self.motion_dataset = []
         self.feature_nns = []
         self.feature_mean = np.zeros(FEATURE_DIM, dtype=np.float32)
         self.feature_std = np.ones(FEATURE_DIM, dtype=np.float32)
         self.preprocess()
-
-        self.SEARCH_INTERVAL = 5
-        self.LOCK_FOOT = False
 
         self.frame_after_search = 0
         self.input_direction = np.array([0.0, 0.0, 0.0])
@@ -39,7 +39,7 @@ class MotionMatchingController:
         y = self.motion_dataset[0].positions[0, 0][1]
         self.root_position = np.array([0.0, y, 0.0])
         self.root_y_rotation = np.pi / 2.0
-        self.root_xz_velocity = np.array([0.0, 0.0, 0.0])
+        self.root_xz_speed = 0.0
 
     def preprocess(self):
         BVH_DIR = "./data/bvh"
@@ -58,7 +58,7 @@ class MotionMatchingController:
         self.feature_std = np.std(all_features, axis=0)
 
         for motion_data in self.motion_dataset:
-            features = motion_data.features
+            features = motion_data.features[: -2 * self.SEARCH_INTERVAL]
             features = self.normalize(features)
             nn = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(features)
             self.feature_nns.append(nn)
@@ -81,17 +81,19 @@ class MotionMatchingController:
         self.root_position += translation
         self.root_y_rotation += motion_data.dy_rotations[self.origin_frame]
         self.root_y_rotation = wrap_angle(self.root_y_rotation)
-        self.root_xz_velocity = project_to_xz(translation)
+        self.root_xz_speed = np.linalg.norm(project_to_xz(translation))
 
         self.update_future()
 
     def update_future(self):
+        MAX_SPEED = 10.0
+        ESTIMATED_TIME = 60
+
         root_R = R.from_euler("y", self.root_y_rotation)
-        local_root_velocity = root_R.inv().apply(self.root_xz_velocity)
+        local_root_velocity = np.array([-1.0, 0.0, 0.0]) * self.root_xz_speed
         local_input_direction = root_R.inv().apply(self.input_direction)
 
-        DISTANCE = 8 * 60
-        target_position = local_input_direction * DISTANCE
+        target_position = local_input_direction * MAX_SPEED * ESTIMATED_TIME
 
         # Calculate expected future root positions and directions
         for i, offset in enumerate(OFFSETS):
@@ -136,7 +138,8 @@ class MotionMatchingController:
                 f"\r[SEARCH] data {best_data_idx:1d} "
                 f"frame {best_frame:4d} "
                 f"distance {min_distance:.4f} "
-                f"time {time_end - time_start:.4f}s"
+                f"time {time_end - time_start:.4f}s "
+                f"input {self.input_direction} "
             ),
             end="",
         )
