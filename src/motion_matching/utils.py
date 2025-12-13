@@ -42,13 +42,11 @@ def normalize(value, mean, std):
     return (value - mean) / std
 
 
-def spring_model(velocity, target, dt):
+def spring_model(velocity, target, dt, smoothness=60.0):
     """Spring model to smoothly interpolate position."""
 
-    SMOOTHNESS = 60
-
     # <Game Programming Gems 4> Chapter 1.10
-    omega = 2.0 / SMOOTHNESS
+    omega = 2.0 / smoothness
     x = omega * dt
     exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x)
     change = -target
