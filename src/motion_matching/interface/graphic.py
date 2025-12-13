@@ -8,9 +8,9 @@ class MotionVisualizer:
     """Class to visualize motion using Rerun."""
 
     def __init__(self):
+        XYZ_TO_ZXY = [0, 0, 0.01, 0.01, 0, 0, 0, 0.01, 0]
         self.input_direction = np.array([0.0, 0.0, 0.0])
 
-        XYZ_TO_ZXY = [0, 0, 0.01, 0.01, 0, 0, 0, 0.01, 0]
         rr.init("MotionVisualizer", spawn=True)
         rr.log("world", rr.Transform3D(mat3x3=XYZ_TO_ZXY))
         rr.log(
