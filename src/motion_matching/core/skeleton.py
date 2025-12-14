@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from motion_matching.bvh import BVHNode
-from motion_matching.core.pose import PoseSet
 
 
 class Joint:
