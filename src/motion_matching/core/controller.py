@@ -120,7 +120,6 @@ class MotionMatchingController:
         positions, rotations = self.skeleton.apply_pose(
             self.root_position,
             self.root_y_rotation,
-            self.pose_sets[self.data_index],
-            self.frame,
+            self.pose_sets[self.data_index].rotations[self.frame],
         )
         return positions, rotations

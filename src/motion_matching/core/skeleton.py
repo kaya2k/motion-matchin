@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-from motion_matching.bvh import BVH, BVHNode
+from motion_matching.bvh import BVHNode
 from motion_matching.core.pose import PoseSet
 
 
@@ -40,7 +40,7 @@ class Skeleton:
         for child_node in node.children:
             self.build_skeleton(child_node, node_index)
 
-    def apply_pose(self, root_position, root_y_rotation, pose_set: PoseSet, frame):
+    def apply_pose(self, root_position, root_y_rotation, joint_rotations):
         positions = []
         rotations = []
         for i, joint in enumerate(self.joints):
@@ -51,7 +51,7 @@ class Skeleton:
                 parent_position = positions[joint.parent]
                 parent_R = R.from_euler("xyz", rotations[joint.parent])
 
-            local_R = R.from_euler("xyz", pose_set.rotations[frame][i])
+            local_R = R.from_euler("xyz", joint_rotations[i])
             position = parent_position + parent_R.apply(joint.offset)
             rotation = (parent_R * local_R).as_euler("xyz")
             positions.append(position)
