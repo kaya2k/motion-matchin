@@ -15,7 +15,7 @@ class MotionMatchingController:
 
     def __init__(self):
         self.SEARCH_INTERVAL = 5
-        self.MAX_SPEED = 20.0
+        self.RUN_SPEED = 20.0
         self.FRAMES_TO_TARGET = 60
         self.ROOT_Y_BLENDING = 0.2
 
@@ -112,7 +112,7 @@ class MotionMatchingController:
         root_xz_speed = np.linalg.norm(self.root_xz_velocity)
         local_root_velocity = np.array(FeatureSet.FORWARD) * root_xz_speed
         local_input_direction = root_y_R.inv().apply(input_direction)
-        target_position = local_input_direction * self.MAX_SPEED * self.FRAMES_TO_TARGET
+        target_position = local_input_direction * self.RUN_SPEED * self.FRAMES_TO_TARGET
 
         for index, offset in enumerate(FeatureSet.OFFSETS):
             position0 = spring_model(local_root_velocity, target_position, offset)
@@ -142,7 +142,7 @@ class MotionMatchingController:
                 self.frame = frame
 
         time_end = time.perf_counter()
-        print(f"[SEARCH] Data {self.data_index:1d}", end=" ")
+        print(f"[SEARCH] Data {self.data_index:02d}", end=" ")
         print(f"Frame {self.frame:4d}", end=" ")
         print(f"Distance {min_distance:.4f}", end=" ")
         print(f"Time {time_end - time_start:.4f}s", end=" ")

@@ -46,23 +46,24 @@ class UserInput:
         if self.joystick:
             SCALE = 128
             joystick_input = self.joystick.read(max_length=64)
-            dx = joystick_input[1] - SCALE
-            dy = joystick_input[2] - SCALE
-            dx = dx if abs(dx) > 10 else 0
-            dy = dy if abs(dy) > 10 else 0
-            return np.array([dx / SCALE, 0.0, dy / SCALE])
+            dx = (joystick_input[1] - SCALE) / SCALE
+            dz = (joystick_input[2] - SCALE) / SCALE
+            direction = np.array([dx, 0.0, dz])
+            norm = np.linalg.norm(direction)
+            direction = direction / norm if norm > 0.1 else np.array([0.0, 0.0, 0.0])
+            return direction
         else:
             dx = 0.0
-            dy = 0.0
+            dz = 0.0
             if "w" in self.keys:
-                dy -= 1.0
+                dz -= 1.0
             if "s" in self.keys:
-                dy += 1.0
+                dz += 1.0
             if "a" in self.keys:
                 dx -= 1.0
             if "d" in self.keys:
                 dx += 1.0
-            direction = np.array([dx, 0.0, dy])
+            direction = np.array([dx, 0.0, dz])
             norm = np.linalg.norm(direction)
             direction = direction / norm if norm > 1.0 else direction
             return direction
