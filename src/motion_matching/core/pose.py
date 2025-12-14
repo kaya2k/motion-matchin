@@ -14,8 +14,6 @@ class PoseSet:
         self.dy_rotations = self.extract_dy_rotations(bvh)
         self.rotations = self.extract_rotations(bvh)
         self.normalize()
-        self.lfoot_contact = []  # TODO
-        self.rfoot_contact = []  # TODO
 
     def extract_root_poses(self, bvh: BVH):
         root_positions = np.array(bvh.root.channel_values)[:, :3]
