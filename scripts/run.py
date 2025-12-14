@@ -1,7 +1,7 @@
 import time
-from motion_matching.interface.graphic import MotionVisualizer
-from motion_matching.interface.user_input import UserInput
 from motion_matching.core.controller import MotionMatchingController
+from motion_matching.interface.visualizer import MotionVisualizer
+from motion_matching.interface.user_input import UserInput
 
 
 def main():
@@ -14,10 +14,15 @@ def main():
         try:
             start_time = time.perf_counter()
             input_direction = user_input.get()
-            visualizer.input_direction = input_direction
-            controller.input_direction = input_direction
-            controller.update()
-            visualizer.update(*controller.get_current_pose())
+            controller.update(input_direction)
+            visualizer.update(
+                controller.skeleton.joint_names,
+                controller.skeleton.edges,
+                *controller.get_global_positions_rotations(),
+                controller.future_trajectories,
+                controller.future_directions,
+                input_direction,
+            )
             elapsed_time = time.perf_counter() - start_time
             time.sleep(max(0, 1 / FPS - elapsed_time))
 

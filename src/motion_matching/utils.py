@@ -2,21 +2,10 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 
-def project_to_xz(vector):
-    """Project 3D vector to XZ plane."""
-
-    projected = vector.copy()
-    projected[1] = 0.0
-    return projected
-
-
 def extract_y_rotation(rotations):
     """Extract y-axis rotation from full 3D rotations."""
 
-    # For single rotation: (3,) -> (1, 3)
-    if rotations.ndim == 1:
-        rotations = rotations[np.newaxis, :]
-
+    rotations = rotations.reshape(-1, 3)
     r = R.from_euler("xyz", rotations)
     z_axis = r.apply(np.array([0.0, 0.0, 1.0]))
     y_rotations = np.arctan2(z_axis[:, 0], z_axis[:, 2])
@@ -27,19 +16,6 @@ def wrap_angle(angle):
     """Wrap angle to [-pi, pi]."""
 
     return (angle + np.pi) % (2 * np.pi) - np.pi
-
-
-def interpolate_angle(angle1, angle2, t):
-    """Interpolate between two angles."""
-
-    delta = wrap_angle(angle2 - angle1)
-    return wrap_angle(angle1 + delta * t)
-
-
-def normalize(value, mean, std):
-    """Normalize value with mean and std."""
-
-    return (value - mean) / std
 
 
 def spring_model(velocity, target, dt, smoothness=60.0):

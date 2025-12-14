@@ -9,8 +9,6 @@ class MotionVisualizer:
 
     def __init__(self):
         XYZ_TO_ZXY = [0, 0, 0.01, 0.01, 0, 0, 0, 0.01, 0]
-        self.input_direction = np.array([0.0, 0.0, 0.0])
-
         rr.init("MotionVisualizer", spawn=True)
         rr.log("world", rr.Transform3D(mat3x3=XYZ_TO_ZXY))
         rr.log(
@@ -29,10 +27,11 @@ class MotionVisualizer:
         rotations,
         future_positions,
         future_directions,
+        input_direction,
     ):
         self.log_root(positions, rotations)
         self.log_bones(joints, edges, positions, rotations)
-        self.log_input_direction(positions)
+        self.log_input_direction(positions, input_direction)
         self.log_future(future_positions, future_directions)
 
     def log_root(self, positions, rotations):
@@ -44,6 +43,12 @@ class MotionVisualizer:
             rr.Transform3D(
                 translation=root_position,
                 quaternion=R.from_euler("y", root_y_rotation).as_quat(),
+            ),
+        )
+        rr.log(
+            "world/root/position",
+            rr.Points3D(
+                positions=np.array([0.0, 0.0, 0.0]), radii=4.0, colors=[[255, 0, 0]]
             ),
         )
 
@@ -65,14 +70,14 @@ class MotionVisualizer:
                 ),
             )
 
-    def log_input_direction(self, positions):
-        root_position = positions[0].copy()
-        root_position[1] = 0
+    def log_input_direction(self, positions, input_direction):
+        origin = positions[0].copy()
+        origin[1] = 0.0
         rr.log(
             "world/input_direction",
             rr.Arrows3D(
-                origins=[root_position],
-                vectors=[self.input_direction * 100.0],
+                origins=[origin],
+                vectors=[input_direction * 100.0],
                 colors=[[255, 0, 0]],
             ),
         )

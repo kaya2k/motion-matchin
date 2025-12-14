@@ -1,63 +1,84 @@
+import os
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-from motion_matching.utils import extract_y_rotation
+from sklearn.neighbors import NearestNeighbors
+from motion_matching.core.pose import PoseSet
+from motion_matching.core.skeleton import Skeleton
 
 
-FEATURE_DIM = 27
-OFFSETS = [10, 20, 30]
+class FeatureSet:
+    """Class to hold feature data for motion matching."""
 
+    OFFSETS = [10, 20, 30]
+    FORWARD = np.array([-1.0, 0.0, 0.0])
+    FEATURE_SAVE_DIR = "./data/feature"
 
-def extract_features(joints, positions, rotations):
-    """
-    Extract feature matrix from positions and rotations for motion matching.
+    def __init__(self, pose_set: PoseSet, skeleton: Skeleton, name):
+        self.features = self.extract_features(pose_set, skeleton, name)
+        self.nn = NearestNeighbors(n_neighbors=1, algorithm="auto")
+        self.mean = np.zeros_like(self.features[0])
+        self.std = np.ones_like(self.features[0])
 
-    Feature vector:
-        Root future positions and directions (x, z) at 10, 20, 30 frames ahead
-        Root velocity (x, y, z)
-        Left foot position (x, y, z), velocity (x, y, z)
-        Right foot position (x, y, z), velocity (x, y, z)
-    """
+    def normalize_and_fit(self, mean, std):
+        self.features = (self.features - mean) / std
+        self.nn.fit(self.features[: -self.OFFSETS[-1]])
+        self.mean = mean
+        self.std = std
 
-    ROOTIDX = 0
-    n_frames = positions.shape[0]
-    features = []
-    velocities = np.gradient(positions, axis=0)
+    def search(self, query_feature):
+        distances, indices = self.nn.kneighbors([query_feature])
+        return distances[0][0], indices[0][0]
 
-    for frame in range(n_frames):
+    def extract_features(self, pose_set, skeleton, name):
+        save_path = os.path.join(self.FEATURE_SAVE_DIR, f"{name}.npy")
+        os.makedirs(self.FEATURE_SAVE_DIR, exist_ok=True)
+        if os.path.exists(save_path):
+            return np.load(save_path)
+
+        features = []
+        for frame in range(pose_set.n_frames):
+            feature = []
+            self.append_future_features(pose_set, frame, feature)
+            self.append_foot_features(pose_set, skeleton, frame, feature)
+            features.append(feature)
+
+        features = np.array(features, dtype=np.float32)
+        np.save(save_path, features)
+        return np.array(features)
+
+    def extract_current_feature(self, trajectories, directions, frame):
         feature = []
+        for i in range(len(self.OFFSETS)):
+            feature.extend(trajectories[i][[0, 2]])
+            feature.extend(directions[i][[0, 2]])
+        feature.extend(self.features[frame, -12:])
+        feature = np.array(feature)
+        feature[:-12] = (feature[:-12] - self.mean[:-12]) / self.std[:-12]
+        return feature
 
-        root_T = positions[frame, ROOTIDX]
-        root_y_rotation = extract_y_rotation(rotations[frame, ROOTIDX])
-        root_R_inv = R.from_euler("y", root_y_rotation).inv()
+    def append_future_features(self, pose_set, frame, feature):
+        trajectory = np.array([0.0, 0.0, 0.0])
+        y_rotation = 0.0
+        for offset in range(1, self.OFFSETS[-1] + 1):
+            next_frame = min(frame + offset, pose_set.n_frames - 1)
+            xz_translation = pose_set.xz_translations[next_frame]
+            translation = np.array([xz_translation[0], 0.0, xz_translation[1]])
+            dy_rotation = pose_set.dy_rotations[next_frame]
+            trajectory += R.from_euler("y", y_rotation).apply(translation)
+            y_rotation += dy_rotation
+            if offset in self.OFFSETS:
+                direction = R.from_euler("y", y_rotation).apply(self.FORWARD)
+                feature.extend(trajectory[[0, 2]])
+                feature.extend(direction[[0, 2]])
 
-        # Root trajectories and forward directions
-        for offset in OFFSETS:
-            next_frame = min(frame + offset, n_frames - 1)
-
-            position = positions[next_frame, ROOTIDX]
-            position = root_R_inv.apply(position - root_T)
-            feature.extend(position[[0, 2]])
-
-            y_rotation = extract_y_rotation(rotations[next_frame, ROOTIDX])
-            y_rotation = root_R_inv * R.from_euler("y", y_rotation)
-            forward = y_rotation.apply(np.array([-1.0, 0.0, 0.0]))
-            feature.extend(forward[[0, 2]])
-
-        # Root velocity
-        root_velocity = velocities[frame, ROOTIDX]
-        root_velocity = root_R_inv.apply(root_velocity)
-        feature.extend(root_velocity)
-
-        # Foot positions and velocities
-        for joint_name in ["LeftFoot", "RightFoot"]:
-            joint_idx = joints.index(joint_name)
-            position = positions[frame, joint_idx]
-            position = root_R_inv.apply(position - root_T)
-            velocity = velocities[frame, joint_idx]
-            velocity = root_R_inv.apply(velocity)
+    def append_foot_features(self, pose_set, skeleton, frame, feature):
+        root_position = np.array([0.0, pose_set.y_positions[frame], 0.0])
+        y_rotation = 0.0
+        frame1 = min(frame + 1, pose_set.n_frames - 1)
+        positions0, _ = skeleton.apply_pose(root_position, y_rotation, pose_set, frame)
+        positions1, _ = skeleton.apply_pose(root_position, y_rotation, pose_set, frame1)
+        for joint_idx in [skeleton.LFOOT_INDEX, skeleton.RFOOT_INDEX]:
+            position = positions0[joint_idx]
+            velocity = positions1[joint_idx] - positions0[joint_idx]
             feature.extend(position)
             feature.extend(velocity)
-
-        features.append(feature)
-
-    return np.array(features)

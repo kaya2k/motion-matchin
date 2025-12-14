@@ -8,9 +8,7 @@ wheels/
 .venv
 
 # Data
-data/features/
-data/positions/
-data/rotations/
+data/feature/
 
 # Others
 .DS_Store
