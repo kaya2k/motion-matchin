@@ -3,6 +3,7 @@ import time
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from motion_matching.bvh import BVH
+from motion_matching.core.blender import InertialRotationBlender
 from motion_matching.core.pose import PoseSet
 from motion_matching.core.feature import FeatureSet
 from motion_matching.core.skeleton import Skeleton
@@ -14,6 +15,9 @@ class MotionMatchingController:
 
     def __init__(self):
         self.SEARCH_INTERVAL = 5
+        self.MAX_SPEED = 20.0
+        self.FRAMES_TO_TARGET = 60
+        self.ROOT_Y_BLENDING = 0.2
 
         # Datasets
         self.skeleton = Skeleton()
@@ -24,11 +28,26 @@ class MotionMatchingController:
 
         # Current state
         self.root_position = np.array([0.0, 0.0, 0.0])
+        self.root_position[1] = self.pose_sets[0].y_positions[0]
         self.root_y_rotation = np.pi / 2.0
-        self.root_xz_velocity = np.array([0.0, 0.0])
+        self.root_xz_velocity = np.array([0.0, 0.0, 0.0])
         self.data_index = 0
         self.frame = 0
         self.frame_after_search = 0
+        self.joint_rotations = np.zeros((self.skeleton.n_joints, 3))
+
+        # Foot contact
+        self.is_toe_contact = [False, False]
+        self.toe_xz_position = [np.array([0.0, 0.0, 0.0]), np.array([0.0, 0.0, 0.0])]
+
+        # Blenders
+        self.pose_blender = InertialRotationBlender(blending_time=self.SEARCH_INTERVAL)
+        self.pose_blender.reset(
+            self.pose_sets[0].rotations[0],
+            self.pose_sets[0].drotations[0],
+            self.pose_sets[0].rotations[0],
+            self.pose_sets[0].drotations[0],
+        )
 
         # Future trajectory
         self.future_trajectories = np.zeros((len(FeatureSet.OFFSETS), 3))
@@ -39,7 +58,7 @@ class MotionMatchingController:
         for filename in sorted(os.listdir(BVH_DIR)):
             if not filename.endswith(".bvh"):
                 continue
-            print(f"[PREPROCESS] Loading bvh {len(self.pose_sets):02d} ({filename})")
+            print(f"[LOAD_DATASETS] BVH {len(self.pose_sets):02d} ({filename})")
             bvh = BVH(os.path.join(BVH_DIR, filename))
             if self.skeleton.n_joints == 0:
                 self.skeleton.build_skeleton(bvh.root)
@@ -63,24 +82,41 @@ class MotionMatchingController:
         self.frame_after_search += 1
 
         if self.frame_after_search == self.SEARCH_INTERVAL:
-            self.update_future(input_direction)
+            prev_pose_set = self.pose_sets[self.data_index]
+            prev_drotations = prev_pose_set.drotations[self.frame]
+
             self.search()
             self.frame_after_search = 0
 
+            pose_set = self.pose_sets[self.data_index]
+            translation = pose_set.xz_translations[self.frame]
+            rotations = pose_set.rotations[self.frame]
+            drotations = pose_set.drotations[self.frame]
+
+            self.pose_blender.reset(
+                self.joint_rotations, prev_drotations, rotations, drotations
+            )
+
+        self.pose_blender.update(dt=1)
+
         pose_set = self.pose_sets[self.data_index]
         root_y_R = R.from_euler("y", self.root_y_rotation)
-        self.root_position += root_y_R.apply(pose_set.xz_translations[self.frame])
-        self.root_position[1] = pose_set.y_positions[self.frame]
+        translation = pose_set.xz_translations[self.frame]
+        self.root_position += root_y_R.apply(translation)
+        self.root_position[1] *= 1.0 - self.ROOT_Y_BLENDING
+        self.root_position[1] += self.ROOT_Y_BLENDING * pose_set.y_positions[self.frame]
         self.root_y_rotation += pose_set.dy_rotations[self.frame]
         self.root_y_rotation = wrap_angle(self.root_y_rotation)
-        self.root_xz_velocity = pose_set.xz_translations[self.frame]
+        self.root_xz_velocity = root_y_R.apply(translation)
+
+        self.update_future(input_direction)
 
     def update_future(self, input_direction):
         root_y_R = R.from_euler("y", self.root_y_rotation)
         root_xz_speed = np.linalg.norm(self.root_xz_velocity)
         local_root_velocity = np.array(FeatureSet.FORWARD) * root_xz_speed
         local_input_direction = root_y_R.inv().apply(input_direction)
-        target_position = local_input_direction * 20.0 * 60
+        target_position = local_input_direction * self.MAX_SPEED * self.FRAMES_TO_TARGET
 
         for index, offset in enumerate(FeatureSet.OFFSETS):
             position0 = spring_model(local_root_velocity, target_position, offset)
@@ -117,9 +153,16 @@ class MotionMatchingController:
         print()
 
     def get_global_positions_rotations(self):
-        positions, rotations = self.skeleton.apply_pose(
+        rotations = self.pose_sets[self.data_index].rotations[self.frame]
+        original_R = R.from_euler("xyz", rotations)
+        offset = self.pose_blender.offset
+        offset_R = R.from_rotvec(offset)
+        blended_R = offset_R * original_R
+        blended_rotations = blended_R.as_euler("xyz")
+        self.joint_rotations = blended_rotations
+
+        return self.skeleton.apply_pose(
             self.root_position,
             self.root_y_rotation,
-            self.pose_sets[self.data_index].rotations[self.frame],
+            blended_rotations,
         )
-        return positions, rotations

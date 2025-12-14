@@ -13,6 +13,7 @@ class PoseSet:
         self.xz_translations, self.y_positions = self.extract_root_poses(bvh)
         self.dy_rotations = self.extract_dy_rotations(bvh)
         self.rotations = self.extract_rotations(bvh)
+        self.drotations = self.extract_drotations()
         self.normalize()
 
     def extract_root_poses(self, bvh: BVH):
@@ -43,6 +44,17 @@ class PoseSet:
         rotations.append(rotation_radians_xyz)
         for child_node in node.children:
             self.collect_rotations(child_node, rotations)
+
+    def extract_drotations(self):
+        n_joints = self.rotations.shape[1]
+        drotations = np.zeros_like(self.rotations)
+        for j in range(n_joints):
+            joint_rotations = self.rotations[:, j]
+            joint_R = R.from_euler("xyz", joint_rotations)
+            joint_dR = joint_R[1:] * joint_R[:-1].inv()
+            joint_drotations = joint_dR.as_euler("xyz")
+            drotations[1:, j] = joint_drotations
+        return drotations
 
     def normalize(self):
         root_rotations = self.rotations[:, 0]

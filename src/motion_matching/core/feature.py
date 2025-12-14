@@ -10,6 +10,7 @@ class FeatureSet:
     """Class to hold feature data for motion matching."""
 
     OFFSETS = [10, 20, 30]
+    EE_DIM = 24
     FORWARD = np.array([-1.0, 0.0, 0.0])
     FEATURE_SAVE_DIR = "./data/feature"
 
@@ -39,22 +40,12 @@ class FeatureSet:
         for frame in range(pose_set.n_frames):
             feature = []
             self.append_future_features(pose_set, frame, feature)
-            self.append_foot_features(pose_set, skeleton, frame, feature)
+            self.append_ee_features(pose_set, skeleton, frame, feature)
             features.append(feature)
 
         features = np.array(features, dtype=np.float32)
         np.save(save_path, features)
         return np.array(features)
-
-    def extract_current_feature(self, trajectories, directions, frame):
-        feature = []
-        for i in range(len(self.OFFSETS)):
-            feature.extend(trajectories[i][[0, 2]])
-            feature.extend(directions[i][[0, 2]])
-        feature.extend(self.features[frame, -12:])
-        feature = np.array(feature)
-        feature[:-12] = (feature[:-12] - self.mean[:-12]) / self.std[:-12]
-        return feature
 
     def append_future_features(self, pose_set, frame, feature):
         trajectory = np.array([0.0, 0.0, 0.0])
@@ -71,14 +62,38 @@ class FeatureSet:
                 feature.extend(trajectory[[0, 2]])
                 feature.extend(direction[[0, 2]])
 
-    def append_foot_features(self, pose_set, skeleton, frame, feature):
+    def append_ee_features(self, pose_set, skeleton, frame, feature):
         root_position = np.array([0.0, pose_set.y_positions[frame], 0.0])
         y_rotation = 0.0
         frame1 = min(frame + 1, pose_set.n_frames - 1)
-        positions0, _ = skeleton.apply_pose(root_position, y_rotation, pose_set, frame)
-        positions1, _ = skeleton.apply_pose(root_position, y_rotation, pose_set, frame1)
-        for joint_idx in [skeleton.LFOOT_INDEX, skeleton.RFOOT_INDEX]:
+        joint_rotations0 = pose_set.rotations[frame]
+        joint_rotations1 = pose_set.rotations[frame1]
+        positions0, _ = skeleton.apply_pose(root_position, y_rotation, joint_rotations0)
+        positions1, _ = skeleton.apply_pose(root_position, y_rotation, joint_rotations1)
+
+        for joint_idx in [
+            skeleton.LFOOT_INDEX,
+            skeleton.RFOOT_INDEX,
+            skeleton.LHAND_INDEX,
+            skeleton.RHAND_INDEX,
+        ]:
             position = positions0[joint_idx]
             velocity = positions1[joint_idx] - positions0[joint_idx]
             feature.extend(position)
             feature.extend(velocity)
+
+    def extract_current_feature(
+        self,
+        trajectories,
+        directions,
+        frame,
+    ):
+        feature = []
+        for i in range(len(self.OFFSETS)):
+            feature.extend(trajectories[i][[0, 2]])
+            feature.extend(directions[i][[0, 2]])
+        feature.extend(self.features[frame, -self.EE_DIM :])
+        feature = np.array(feature)
+        feature[: -self.EE_DIM] -= self.mean[: -self.EE_DIM]
+        feature[: -self.EE_DIM] /= self.std[: -self.EE_DIM]
+        return feature

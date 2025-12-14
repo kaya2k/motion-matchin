@@ -16,8 +16,9 @@ class Skeleton:
     """Class representing a skeleton structure."""
 
     def __init__(self):
-        self.LFOOT_INDEX = -1
-        self.RFOOT_INDEX = -1
+        self.LFOOT_INDEX = self.RFOOT_INDEX = -1
+        self.LTOE_INDEX = self.RTOE_INDEX = -1
+        self.LHAND_INDEX = self.RHAND_INDEX = -1
 
         self.n_joints = 0
         self.joints = []
@@ -36,6 +37,15 @@ class Skeleton:
             self.LFOOT_INDEX = node_index
         if node.name == "RightFoot":
             self.RFOOT_INDEX = node_index
+        if node.name == "LeftToe":
+            self.LTOE_INDEX = node_index
+        if node.name == "RightToe":
+            self.RTOE_INDEX = node_index
+        if node.name == "LeftHand":
+            self.LHAND_INDEX = node_index
+        if node.name == "RightHand":
+            self.RHAND_INDEX = node_index
+
         for child_node in node.children:
             self.build_skeleton(child_node, node_index)
 

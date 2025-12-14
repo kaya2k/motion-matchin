@@ -21,6 +21,7 @@ def main():
                 *controller.get_global_positions_rotations(),
                 controller.future_trajectories,
                 controller.future_directions,
+                controller.is_toe_contact,
                 input_direction,
             )
             elapsed_time = time.perf_counter() - start_time
