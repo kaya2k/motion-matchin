@@ -8,8 +8,11 @@ class MotionVisualizer:
     """Class to visualize motion using Rerun."""
 
     def __init__(self):
-        XYZ_TO_ZXY = [0, 0, 0.01, 0.01, 0, 0, 0, 0.01, 0]
+        XYZ_TO_ZXY = [0, 0, 1, 1, 0, 0, 0, 1, 0]
+        self.frame = 0
+
         rr.init("motion_matching", spawn=True)
+        rr.set_time("frame", sequence=self.frame)
         rr.log("world", rr.Transform3D(mat3x3=XYZ_TO_ZXY))
         rr.log(
             "world/xyz",
@@ -21,17 +24,17 @@ class MotionVisualizer:
 
     def update(
         self,
-        joints,
         edges,
         positions,
         rotations,
         future_positions,
         future_directions,
-        is_toe_contact,
         input_direction,
     ):
+        self.frame += 1
+        rr.set_time("frame", sequence=self.frame)
+        self.log_bones(edges, positions, rotations)
         self.log_local(positions, rotations)
-        self.log_bones(joints, edges, positions, rotations, is_toe_contact)
         self.log_input_direction(positions, input_direction)
         self.log_future(future_positions, future_directions)
 
@@ -53,28 +56,31 @@ class MotionVisualizer:
             ),
         )
 
-    def log_bones(self, joints, edges, positions, rotations, is_toe_contact):
+    def log_bones(self, edges, positions, rotations):
+        centers = [[positions[0][0], 100.0, positions[0][2]]]
+        half_sizes = [np.array([100.0, 150.0, 100.0])]
+        quats = [R.from_euler("y", 0.0).as_quat()]
+        colors = [[255, 255, 255, 0]]
         for i, j in edges:
             center = (positions[i] + positions[j]) / 2.0
             length = np.linalg.norm(positions[i] - positions[j])
-            half_sizes = np.array([length / 2.0, 4.0, 4.0])
+            half_size = np.array([length / 2.0, 4.0, 4.0])
             quat = R.from_euler("xyz", rotations[i]).as_quat()
-            if joints[j] == "LeftToe" and is_toe_contact[0]:
-                color = [255, 0, 0]
-            elif joints[j] == "RightToe" and is_toe_contact[1]:
-                color = [255, 0, 0]
-            else:
-                color = [255, 255, 255]
-            rr.log(
-                f"world/bones/{joints[i]}-{joints[j]}",
-                rr.Boxes3D(
-                    centers=[center],
-                    half_sizes=[half_sizes],
-                    rotations=[quat],
-                    colors=[color],
-                    fill_mode="solid",
-                ),
-            )
+            centers.append(center)
+            half_sizes.append(half_size)
+            quats.append(quat)
+            colors.append([255, 255, 255, 255])
+
+        rr.log(
+            f"world/bones",
+            rr.Boxes3D(
+                centers=centers,
+                half_sizes=half_sizes,
+                rotations=quats,
+                colors=colors,
+                fill_mode="solid",
+            ),
+        )
 
     def log_input_direction(self, positions, input_direction):
         origin = positions[0].copy()

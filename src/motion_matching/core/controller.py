@@ -36,10 +36,6 @@ class MotionMatchingController:
         self.frame_after_search = 0
         self.joint_rotations = np.zeros((self.skeleton.n_joints, 3))
 
-        # Foot contact
-        self.is_toe_contact = [False, False]
-        self.toe_xz_position = [np.array([0.0, 0.0, 0.0]), np.array([0.0, 0.0, 0.0])]
-
         # Blenders
         self.pose_blender = InertialRotationBlender(blending_time=self.SEARCH_INTERVAL)
         self.pose_blender.reset(

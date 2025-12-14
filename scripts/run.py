@@ -16,12 +16,10 @@ def main():
             input_direction = user_input.get()
             controller.update(input_direction)
             visualizer.update(
-                controller.skeleton.joint_names,
                 controller.skeleton.edges,
                 *controller.get_global_positions_rotations(),
                 controller.future_trajectories,
                 controller.future_directions,
-                controller.is_toe_contact,
                 input_direction,
             )
             elapsed_time = time.perf_counter() - start_time

@@ -17,7 +17,6 @@ class Skeleton:
 
     def __init__(self):
         self.LFOOT_INDEX = self.RFOOT_INDEX = -1
-        self.LTOE_INDEX = self.RTOE_INDEX = -1
         self.LHAND_INDEX = self.RHAND_INDEX = -1
 
         self.n_joints = 0
@@ -37,10 +36,6 @@ class Skeleton:
             self.LFOOT_INDEX = node_index
         if node.name == "RightFoot":
             self.RFOOT_INDEX = node_index
-        if node.name == "LeftToe":
-            self.LTOE_INDEX = node_index
-        if node.name == "RightToe":
-            self.RTOE_INDEX = node_index
         if node.name == "LeftHand":
             self.LHAND_INDEX = node_index
         if node.name == "RightHand":
