@@ -9,7 +9,7 @@ from motion_matching.core.skeleton import Skeleton
 class FeatureSet:
     """Class to hold feature data for motion matching."""
 
-    OFFSETS = [10, 20, 30]
+    OFFSETS = [5, 10, 15, 20, 25, 30]
     EE_DIM = 24
     FORWARD = np.array([-1.0, 0.0, 0.0])
     FEATURE_SAVE_DIR = "./data/feature"
